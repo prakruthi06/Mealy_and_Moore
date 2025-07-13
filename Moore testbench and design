@@ -1,0 +1,73 @@
+//Moore testbench
+`timescale 1ns/1ps
+module moore_fsm_tb;
+reg clk, rst, in;
+wire out;
+moore_fsm uut (.clk(clk),.rst(rst),.in(in),.out(out));
+// Clock generation
+always #5 clk = ~clk;
+// Stimulus
+initial begin
+// Waveform setup
+$dumpfile("dump.vcd");
+$dumpvars(0, moore_fsm_tb);
+clk = 0;
+rst = 1;
+in = 0;
+#10;
+rst = 0;
+// Apply input sequence: 1 0 1 → should detect and set output high
+in = 1; #10;
+in = 0; #10;
+in = 1; #10;
+// More sequences
+in = 0; #10;
+in = 1; #10;
+in = 1; #10;
+in = 0; #10;
+in = 1; #10;
+#50;
+$finish;
+end
+endmodule
+
+module moore_fsm (input clk, input rst, input in, output reg out);
+  // Define state encodings
+  parameter S0 = 2'b00;
+  parameter S1 = 2'b01;
+  parameter S2 = 2'b10;
+  parameter S3 = 2'b11;
+
+  reg [1:0] state, next;
+
+  // State transition on clock edge
+  always @(posedge clk or posedge rst)
+  begin
+    if (rst)
+      state <= S0;
+    else
+      state <= next;
+  end
+
+  // Next state logic
+  always @(*)
+  begin
+    case (state)
+      S0: next = in ? S1 : S0;
+      S1: next = in ? S1 : S2;
+      S2: next = in ? S3 : S0;
+      S3: next = in ? S1 : S2;
+      default: next = S0;
+    endcase
+  end
+
+  // Moore output logic (only based on state)
+  always @(*)
+  begin
+    case (state)
+      S3: out = 1'b1;
+      default: out = 1'b0;
+    endcase
+  end
+
+endmodule
