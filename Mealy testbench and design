@@ -1,0 +1,110 @@
+// Testbench for Mealy FSM
+module state_machine_mealy_tb();
+    // Declare signals
+    reg logic clk, reset, in;  // Use logic for signals driven in always blocks
+    wire logic out;         // Use logic for signals driven by combinational logic
+
+    // Instantiate the Device Under Test (DUT)
+    state_machine_mealy dut (
+        .clk(clk),
+        .reset(reset),
+        .in(in),
+        .out(out)
+    );
+
+    // Clock generation
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk; // Generate a 10ns period clock (5ns high, 5ns low)
+    end
+
+    // Stimulus and Waveform Dumping
+    initial begin
+        // Initialize signals
+        reset = 1;
+        in = 0;
+
+        // Dump waveform data for visualization
+        $dumpfile("mealy_fsm.vcd"); // More descriptive filename
+        $dumpvars(0, state_machine_mealy_tb);
+
+        // Apply reset and stimulus
+        #12;         // Apply reset for 12 ns
+        reset = 0;    // Deassert reset
+
+        // Apply a sequence of random inputs
+        for (int i = 0; i < 20; i = i + 1) begin
+            @(negedge clk);  // Input changes on the negative edge of the clock
+            in = $random % 2; // Generate a random 0 or 1
+        end
+
+        #20; // Wait for a few extra cycles
+
+        // Finish the simulation
+        $finish;
+    end
+
+    // Display output and state changes for debugging
+    always @(posedge clk) begin
+        $display("Time=%0t | in=%b | out=%b | state=%s",  // Use %s for state enum
+                 $time, in, out, dut.state);
+    end
+
+endmodule
+
+// Mealy FSM Design
+module state_machine_mealy (
+    input logic clk,
+    input logic reset,
+    input logic in,
+    output logic out
+);
+    // Define state encoding using an enum
+    typedef enum logic [1:0] {S0, S1, S2} state_t;
+    state_t state, next_state;
+
+    // State register: Update state on clock edge, reset to S0
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset)
+            state <= S0;
+        else
+            state <= next_state;
+    end
+
+    // Combinational logic for next state and output
+    always_comb begin
+        // Default assignments to avoid unintentional latches.  Good practice.
+        next_state = S0;
+        out = 0;
+
+        case (state)
+            S0: begin
+                if (in) begin
+                    next_state = S1;
+                    out = 0; // Output is 0 in S0, regardless of input
+                end else begin
+                    next_state = S0;
+                    out = 0; // Output is 0 in S0, regardless of input
+                end
+            end
+            S1: begin
+                if (in) begin
+                    next_state = S2;
+                    out = 1; // Output is 1 when in S1 and input is 1
+                end else begin
+                    next_state = S0;
+                    out = 0; // Output is 0 when in S1 and input is 0
+                end
+            end
+            S2: begin
+                next_state = S0;
+                out = 0;     // Output is 0 in S2, regardless of input
+            end
+            default: begin  //Handles any undefined states.  Important for safety.
+                next_state = S0;
+                out = 0;
+            end
+        endcase
+    end
+
+endmodule
